@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
 	Buffer<uint8_t> shifted(input.width() - 2 * W, input.height() - 2 * W, input.channels());
 	shifted.set_min(W, W);
 
-
 	imp_bi_filter.realize(shifted);
 
 	Tools::save_image(shifted, "output.png");
