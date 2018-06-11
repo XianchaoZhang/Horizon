@@ -5,7 +5,7 @@
 #include "Halide.h"
 #include "halide_image_io.h"
 #include "denoise.h"
-#define L 1
+#define L 10
 #define W 2
 
 
@@ -44,17 +44,22 @@ int main(int argc, char **argv) {
 	// Compute box filtered image
 	Buffer<uint8_t> box_filtered(input.width(), input.height(), input.channels()); 
 
+	Func box_filtered_test, foo;
 
-	box_filtered(x, y, c) = u8((float)(1 / pow(2 * L + 1, 2)) * sum(input(x - l_r.x, y - l_r.y, c)));
+	box_filtered(x, y, c) = (f32((1 / ((2 * L + 1) * (2 * L + 1))) * sum(input(x - l_r.x, y - l_r.y, c))));
+
+	Buffer<uint8_t> box_filtered = foo.realize(input.width(), input.height(), input.channels());
+	box_filtered_test(x, y, c) = print(box_filtered(x, y, c));
 	imp_bi_filter_num(x, y, c) = u8(min(sum(g_sig_s(omega.x, omega.y) * g_sig_r(box_filtered(x - omega.x, y - omega.y, c) - box_filtered(x, y, c)) * input(x - omega.x, y - omega.y, c)), 255));
-	imp_bi_filter_den(x, y, c) = print(u8(sum(g_sig_s(omega.x, omega.y) * (g_sig_r(box_filtered(x - omega.x, y - omega.y, c) - box_filtered(x, y, c))))));
+	imp_bi_filter_den(x, y, c) = (u8(sum(g_sig_s(omega.x, omega.y) * (g_sig_r((box_filtered(x - omega.x, y - omega.y, c) - box_filtered(x, y, c)))))));
 	imp_bi_filter(x, y, c) = u8(imp_bi_filter_num(x, y, c) / imp_bi_filter_den(x, y, c));
-	// imp_bi_filter.trace_stores();
+	// // imp_bi_filter.trace_stores();
 
 	Buffer<uint8_t> shifted(input.width() - 2 * W, input.height() - 2 * W, input.channels());
 	shifted.set_min(W, W);
 
-	imp_bi_filter.realize(shifted);
+	box_filtered_test.realize(shifted);
+	//imp_bi_filter.realize(shifted);
 
 	Tools::save_image(shifted, "output.png");
 
