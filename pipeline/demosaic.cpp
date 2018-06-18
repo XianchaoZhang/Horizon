@@ -1,3 +1,10 @@
+/* 
+   Author: Ziqi Zhang
+   University of Rochester
+   zzhang73 at u.rochester.edu
+*/
+
+
 #include "Halide.h"
 #include <stdio.h>
 #include "halide_image_io.h"
