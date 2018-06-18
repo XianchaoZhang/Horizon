@@ -55,7 +55,7 @@ int main(int argc, char **argv){
 	RDom r(1, input.width() - 2, 1, input.height() - 2);
 
 	
-	r.where(r.x % 2 == 1);
+	r.where(r.x % 2 == 0);
 	r.where(r.y % 2 == 0);
 
 	demosaic(r.x, r.y, 1) = (input(r.x, r.y + 1, 1) / 4 + input(r.x, r.y - 1, 1) / 4 + input(r.x + 1, r.y, 1) / 4 + input(r.x - 1, r.y, 1) / 4);
@@ -66,7 +66,7 @@ int main(int argc, char **argv){
 
 	RDom b(1, input.width() - 2, 1, input.height() - 2);
 
-	b.where(b.x % 2 == 0);
+	b.where(b.x % 2 == 1);
 	b.where(b.y % 2 == 1);
 
 	demosaic(b.x, b.y, 0) = (input(b.x + 1, b.y + 1, 0) / 4 + input(b.x - 1, b.y + 1, 0) / 4 + input(b.x + 1, b.y - 1, 0) / 4 + input(b.x - 1, b.y - 1, 0) / 4);
@@ -75,7 +75,7 @@ int main(int argc, char **argv){
 	//Green 01
 
 	RDom g1(1, input.width() - 2, 1, input.height() - 2);
-	g1.where(g1.x % 2 == 1);
+	g1.where(g1.x % 2 == 0);
 	g1.where(g1.y % 2 == 1);
 
 	demosaic(g1.x, g1.y, 0) = (input(g1.x, g1.y + 1, 0) / 2 + input(g1.x, g1.y - 1, 0) / 2);
@@ -85,7 +85,7 @@ int main(int argc, char **argv){
 	//Green 02
 
 	RDom g2(1, input.width() - 2, 1, input.height() - 2);
-	g2.where(g2.x % 2 == 0);
+	g2.where(g2.x % 2 == 1);
 	g2.where(g2.y % 2 == 0);
 
 	demosaic(g2.x, g2.y, 0) = (input(g2.x + 1, g2.y, 0) / 2 + input(g2.x - 1, g2.y, 0) / 2);
