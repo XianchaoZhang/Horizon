@@ -76,8 +76,18 @@ void print_heap(vector<vector<int16_t>> heap, int x, int y) {
 	cout<<"Heap"<<endl;
 	cout<<"y "<<y<<" x "<<x<<endl;
 	for(int i = 0; i < K; i++) {
-		for(int j = 0; j < 3; j++) {
-			switch(j) {
+		print_v_i(heap.at(i));
+
+		cout<<endl;
+	}
+
+	cout<<endl;
+}
+
+void print_v_i(vector<short> v_i) {
+	cout<<"Printing v_i"<<endl;
+	for(int i = 0; i < 3; i++) {
+		switch(i) {
 
 				case 0:
 					cout<<"x_i: ";
@@ -92,14 +102,13 @@ void print_heap(vector<vector<int16_t>> heap, int x, int y) {
 					break;
 			
 			}
-			
-				cout<<heap.at(i).at(j)<<endl;		
-		}
 
-		cout<<endl;
+		cout<<v_i.at(i)<<endl;
 	}
-
-	cout<<endl;
 }
 
-
+void print_coord(short* coord) {
+	cout<<"print_coord()"<<endl;
+	cout<<"x "<<coord[0]<<endl;
+	cout<<"y "<<coord[1]<<endl;
+}

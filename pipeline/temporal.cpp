@@ -26,7 +26,7 @@ int height;
 int n_channels;
 Func D, I;
 
-Buffer<int16_t> pix(1, 1, 1, 1, 1); //x, y, x_i, y_i, c
+Buffer<short> pix(1, 1, 1, 1, 1); //x, y, x_i, y_i, c
 
 int main(int argc, char** argv) {
 
@@ -34,16 +34,17 @@ int main(int argc, char** argv) {
 
 	get_input();
 	
-	// Buffer<vector<vector<int16_t>>*> b(width, height, n_channels);
-	vector<vector<int16_t>> neighbors;
-	vector<int16_t> v_i;
-	uint16_t coord[2];
+	// Buffer<vector<vector<short>>*> b(width, height, n_channels);
+	vector<vector<short>> neighbors;
+	vector<short> v_i;
+	ushort coord[2];
 
 	for(int y = 0; y < 10; y++) {
 		for(int x = 0; x < 10; x++) {
 			for(int i = 0; i < K; i++) {
 
 				set_v_i(x, y, &v_i);
+				// print_v_i(v_i);
 				neighbors.push_back(v_i);
 				clear_v_i(&v_i);
 			}
@@ -56,38 +57,44 @@ int main(int argc, char** argv) {
 }
 
 
-int16_t* get_rand_coord(int16_t* coord) {
+short* get_rand_coord(short* coord) {
 	
 	coord[0] = get_rand_x_y();
 	coord[1] = get_rand_x_y();
+	// print_coord(coord);
 	return coord;
 }
 
 
 
-int16_t get_rand_x_y() {
+short get_rand_x_y() {
 
 	float foo = sig_s * box_muller_trans((float) rand() / RAND_MAX);	
-	// cout<<"get_rand_x_y() returning "<<(int16_t)foo<<endl;
-	return (int16_t) foo;
+	// cout<<"get_rand_x_y() returning "<<(short)foo<<endl;
+	return (short) foo;
 }
 
-void set_v_i(uint16_t x, uint16_t y, vector<int16_t>* v_i) {
+void set_v_i(ushort x, ushort y, vector<short>* v_i) {
 	
-	int16_t coord[2];
+	short coord[2];
 	get_rand_coord(coord);
+	cout<<"Printing coordinate before realizing"<<endl;
+	print_coord(coord);
 	pix.set_min(x, y, x + coord[0], y + coord[1], 0);			
 	D.realize(pix);
 	
 	int D_i = pix(x, y, x + coord[0], y + coord[1], 0);
+	// cout<<D_i<<endl;
 
 	v_i->push_back(coord[0]); //x
 	v_i->push_back(coord[1]); //y
 	v_i->push_back(D_i);
+	cout<<"Printing coordinate before realizing and pushing"<<endl;
+	print_coord(coord);
 
 }
 
-void clear_v_i(vector<int16_t>* v_i) {
+void clear_v_i(vector<short>* v_i) {
 	v_i->pop_back();
 	v_i->pop_back();
 	v_i->pop_back();
@@ -106,7 +113,7 @@ void get_input() {
 
 	for(int i = 0; i < n_frames; i++) {
 
-		path = "./frames/f_" + to_string(i + 1) + ".png";
+		path = "./frames/f_" + to_string(i + 1) + ".jpg";
 		input[i] = Tools::load_image(path);	
 
 	}
