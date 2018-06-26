@@ -10,6 +10,8 @@
 #include "Halide.h"
 #include "halide_image_io.h"
 #include "temporal.h"
+#include <map>
+
 
 using namespace std;
 using namespace Halide; 
@@ -18,68 +20,140 @@ using namespace Halide::ConciseCasts;
 extern const int K = 11;
 const int n_frames = 5;
 const int s = 10;
-int sig_s;
 
 Buffer<uint8_t> input[n_frames];
 int width;
 int height;
 int n_channels;
 Func D, I;
+multimap<vector<int>, vector<int>> coord_m;
 
 Buffer<short> pix(1, 1, 1, 1, 1); //x, y, x_i, y_i, c
+Buffer<short> b(width);
 
 int main(int argc, char** argv) {
+	clock_t t = clock();
+	get_input();	
+	b = init_neighbors();
+	cout<<"b(10, 10, -506, 36, 0) "<<b(10, 10, -506, 36, 0)<<endl;
 
-	srand(17);
+	for(int j = 1; j < height; j++) {
+		for(int i = 1; i < width; i++) {
 
-	get_input();
+			get_buffer_values(b, i, j);
+
+		}
+	}
+	t = clock() - t;
+	cout<<(float)t/CLOCKS_PER_SEC<<" seconds";
+}
+
+
+void get_buffer_values(Buffer<short> b, int i, int j) {
+	auto range = coord_m.equal_range({i, j}); //get all neighbor coordinates of i, j
 	
-	// Buffer<vector<vector<short>>*> b(width, height, n_channels);
-	vector<vector<short>> neighbors;
+	for(auto k = range.first; k != range.second; ++k) {
+		if(i == 10 && j == 10) {
+			cout<<"printing at get_buffer_values()"<<endl;
+			print_buffer(b, i, j, k->second.at(0), k->second.at(1), 0);
+		}
+	}
+}
+
+Buffer<short> init_neighbors() {
+	srand(17);
+	Buffer<short> b(width);
 	vector<short> v_i;
 	ushort coord[2];
-
-	for(int y = 0; y < 10; y++) {
-		for(int x = 0; x < 10; x++) {
+	vector<vector<short>> neighbors;
+	for(int y = 0; y < height; y++) {
+		for(int x = 0; x < width; x++) {
 			for(int i = 0; i < K; i++) {
-
 				set_v_i(x, y, &v_i);
-				// print_v_i(v_i);
 				neighbors.push_back(v_i);
 				clear_v_i(&v_i);
 			}
 			
 			sort_heap_last_element(&neighbors);	
-			if(x<3 && y<3) print_heap(neighbors, x, y);
-			// b(x, y, 0) = neighbors;		
+			// if(x<3 && y<3) print_heap(neighbors, x, y);
+			fill_buffer(b, x, y, neighbors);
+			clear_neighbors(&neighbors);
+				
 		}
 	}
+	cout<<"at init_neighbors()"<<endl;
+	print_buffer(b, 10, 10, -506, 36, 0);
+	return b;
 }
 
 
+void clear_neighbors(vector<vector<short>>* neighbors) {
+	for(int i = 0; i < K; i++) {
+		neighbors->pop_back();
+	}
+	// cout<<"size "<<neighbors->size()<<endl;
+}
+
+void fill_buffer(Buffer<short> b, short x, short y, vector<vector<short>> neighbors) {
+	
+	for(int i = 0; i < K; i++) {
+		short x_i = neighbors.at(i).at(0);
+		short y_i = neighbors.at(i).at(1);
+		short d = neighbors.at(i).at(2);
+		// if(x_i > width) cout<<"x_i > width "<<x_i<<endl;
+		// if(y_i > height) cout<<"y_i > width "<<y_i<<endl;
+		b(x, y, x_i, y_i, 0) = d; //x, y, x_i, y_i, channels.  
+		vector<int> c = {x, y};
+		vector<int> c_i = {x_i, y_i};
+		coord_m.insert(pair <vector<int>, vector<int>> (c, c_i));
+		if(x == 10 && y == 10) {
+			cout<<"printing at fill_buffer()"<<endl;
+			print_buffer(b, x, y, x_i, y_i, 0);
+			
+		}
+			
+	}
+
+}
+
 short* get_rand_coord(short* coord) {
 	
-	coord[0] = get_rand_x_y();
-	coord[1] = get_rand_x_y();
+	coord[0] = get_rand_x();
+	coord[1] = get_rand_y();
 	// print_coord(coord);
 	return coord;
 }
 
 
 
-short get_rand_x_y() {
+short get_rand_x() {
+	float rand_x;
+	while(true) {
+		
+		rand_x = width / 3 * box_muller_trans((float) rand() / RAND_MAX);	
+		if(rand_x < width) break;
+	}
+	
+	return (short) rand_x;
+}
 
-	float foo = sig_s * box_muller_trans((float) rand() / RAND_MAX);	
-	// cout<<"get_rand_x_y() returning "<<(short)foo<<endl;
-	return (short) foo;
+short get_rand_y() {
+	float rand_y;
+		while(true) {
+			
+			rand_y = height / 3 * box_muller_trans((float) rand() / RAND_MAX);	
+			if(rand_y < height) break;
+		}
+		
+		return (short) rand_y;
 }
 
 void set_v_i(ushort x, ushort y, vector<short>* v_i) {
 	
 	short coord[2];
 	get_rand_coord(coord);
-	cout<<"Printing coordinate before realizing"<<endl;
-	print_coord(coord);
+	// cout<<"Printing coordinate before realizing"<<endl;
+	// print_coord(coord);
 	pix.set_min(x, y, x + coord[0], y + coord[1], 0);			
 	D.realize(pix);
 	
@@ -89,8 +163,8 @@ void set_v_i(ushort x, ushort y, vector<short>* v_i) {
 	v_i->push_back(coord[0]); //x
 	v_i->push_back(coord[1]); //y
 	v_i->push_back(D_i);
-	cout<<"Printing coordinate before realizing and pushing"<<endl;
-	print_coord(coord);
+	// cout<<"Printing coordinate after realizing and pushing"<<endl;
+	// print_coord(coord);
 
 }
 
@@ -102,9 +176,7 @@ void clear_v_i(vector<short>* v_i) {
 
 // converts a uniform random variable into a standard normal variable
 float box_muller_trans(float x) {
-	float foo = sqrt(-2 * log(x)) * cos(2 * M_PI * x);
-	// cout<<"box_muller_trans() returning "<<foo<<endl;
-	return foo;
+	return sqrt(-2 * log(x)) * cos(2 * M_PI * x);;
 }
 
 void get_input() {
@@ -113,7 +185,7 @@ void get_input() {
 
 	for(int i = 0; i < n_frames; i++) {
 
-		path = "./frames/f_" + to_string(i + 1) + ".jpg";
+		path = "./frames/f_" + to_string(i + 1) + ".png";
 		input[i] = Tools::load_image(path);	
 
 	}
@@ -122,16 +194,15 @@ void get_input() {
 	height = input[0].height();
 	n_channels = input[0].channels();
 	
-	sig_s = width / 3;
+	// sig_s = width / 3;
 	Var x, y, x_i, y_i, c;
 	RDom u(-s, s, -s, s);
-
-	Expr clamped_x = clamp(x, s, width - s);
-	Expr clamped_y = clamp(y, s, height - s);
-	
-	I(x, y, c) = input[0](clamped_x, clamped_y, c);	
+	I(x, y, c) = input[0](clamp(x, s, width - s), clamp(y, s, height - s), c);	
 	D(x, y, x_i, y_i, c) = i16(sum(pow((I(x + u.x, y + u.y, c) - I(x_i + u.x, y_i + u.y, c)), 2)));
 	// D.trace_stores();
 
 }
 
+void print_buffer(Buffer<short> b, int x, int y, int x_i, int y_i, int c) {
+	cout<<"b("<<x<<", "<<y<<", "<<x_i<<", "<<y_i<<", "<<c<<")="<< b(x, y, x_i, y_i, c)<<endl;
+}

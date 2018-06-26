@@ -1,6 +1,8 @@
 #include <vector>
+#include "Halide.h"
 extern const int K;
 
+using namespace Halide;
 using namespace std;
 
 void get_input();
@@ -15,7 +17,13 @@ void sort_heap_last_element(vector<vector<short>>* a);
 void print_heap(vector<vector<short>> heap, int x, int y);
 void set_v_i(ushort x, ushort y, vector<short>* c);
 void clear_v_i(vector<short>* c);
-short get_rand_x_y();
+short get_rand_x();
+short get_rand_y();
 short* get_rand_coord(short* coord);
 void print_v_i(vector<short> v_i);
 void print_coord(short* coord);
+Buffer<short> init_neighbors();
+void fill_buffer(Buffer<short> b, short x, short y, vector<vector<short>> neighbors);
+void clear_neighbors(vector<vector<short>>* neighbors);
+void get_buffer_values(Buffer<short> b, int i, int j);
+void print_buffer(Buffer<short> b, int x, int y, int x_i, int y_i, int c);
