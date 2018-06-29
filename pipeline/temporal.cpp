@@ -19,22 +19,70 @@ using namespace Halide::ConciseCasts;
 
 extern const int K = 11;
 const int n_frames = 5;
-const int s = 10;
 
-Buffer<uint8_t> input[n_frames];
+
+
 int width;
 int height;
 int n_channels;
-Func D, I;
+Buffer<uint8_t> input[n_frames];
 multimap<vector<int>, vector<int>> coord_m;
 
 Buffer<short> pix(1, 1, 1, 1, 1); //x, y, x_i, y_i, c
 Buffer<short> b(width);
 
+
+Var x, y, x_i, y_i, c, i, xo, yo, xi, yi;
+class NeighborPipeline {
+public: 
+	Func D, I;
+	Buffer<uint8_t> input;
+	const int s = 10;
+	
+	NeighborPipeline(Buffer<uint8_t> in) : input(in) {
+		RDom u(-s, s, -s, s);
+
+		I(x, y, c) = input(clamp(x, s, width - s), clamp(y, s, height - s), c);	
+		D(x, y, x_i, y_i, c) = i16(sum(pow((I(x + u.x, y + u.y, c) - I(x_i + u.x, y_i + u.y, c)), 2)));
+	} 
+
+	void schedule_for_gpu() {
+		Var block, thread;
+
+		// D.split(i, block, thread, 16);
+		//D.gpu_blocks(block)
+			// .gpu_threads(thread);
+		
+		D.reorder(c, x_i, y_i, x, y).bound(c, 0, 3).unroll(c);
+		D.gpu_tile(x, y, xo, yo, xi, yi, 32, 32);
+
+
+	    // Start with a target suitable for the machine you're running
+	    // this on.
+	    Target target = get_host_target();
+
+	    // Then enable OpenCL or Metal, depending on which platform
+	    // we're on. OS X doesn't update its OpenCL drivers, so they
+	    // tend to be broken. CUDA would also be a fine choice on
+	    // machines with NVidia GPUs.
+	    if (target.os == Target::OSX) {
+	        target.set_feature(Target::Metal);
+	    } else {
+	        target.set_feature(Target::OpenCL);
+	    }
+
+	    D.compile_jit(target);
+	}
+};
+
 int main(int argc, char** argv) {
+	
 	clock_t t = clock();
-	get_input();	
-	b = init_neighbors();
+	get_input();
+	NeighborPipeline p1(input[0]);
+	// p1.schedule_for_gpu();
+	
+	b = init_neighbors(p1);
 	cout<<"b(10, 10, -506, 36, 0) "<<b(10, 10, -506, 36, 0)<<endl;
 
 	for(int j = 1; j < height; j++) {
@@ -60,7 +108,7 @@ void get_buffer_values(Buffer<short> b, int i, int j) {
 	}
 }
 
-Buffer<short> init_neighbors() {
+Buffer<short> init_neighbors(NeighborPipeline p) {
 	srand(17);
 	Buffer<short> b(width);
 	vector<short> v_i;
@@ -69,7 +117,7 @@ Buffer<short> init_neighbors() {
 	for(int y = 0; y < height; y++) {
 		for(int x = 0; x < width; x++) {
 			for(int i = 0; i < K; i++) {
-				set_v_i(x, y, &v_i);
+				set_v_i(p, x, y, &v_i);
 				neighbors.push_back(v_i);
 				clear_v_i(&v_i);
 			}
@@ -148,14 +196,24 @@ short get_rand_y() {
 		return (short) rand_y;
 }
 
-void set_v_i(ushort x, ushort y, vector<short>* v_i) {
+
+void set_v_i(NeighborPipeline p, ushort x, ushort y, vector<short>* v_i) {
 	
 	short coord[2];
 	get_rand_coord(coord);
 	// cout<<"Printing coordinate before realizing"<<endl;
 	// print_coord(coord);
-	pix.set_min(x, y, x + coord[0], y + coord[1], 0);			
-	D.realize(pix);
+	pix.set_min(x, y, x + coord[0], y + coord[1], 0);	
+	cout<<"x "<<x<<" y "<<y<<" x+coord[0] "<<x+coord[0]<<" y+coord[1] "<<y+coord[1]<<endl;
+	if(have_opencl_or_metal()) {
+		cout<<"not coming here"<<endl;
+		
+		p.D.realize(pix);
+	} else {
+		cout<<"not found"<<endl;
+	}
+	
+
 	
 	int D_i = pix(x, y, x + coord[0], y + coord[1], 0);
 	// cout<<D_i<<endl;
@@ -195,14 +253,40 @@ void get_input() {
 	n_channels = input[0].channels();
 	
 	// sig_s = width / 3;
-	Var x, y, x_i, y_i, c;
-	RDom u(-s, s, -s, s);
-	I(x, y, c) = input[0](clamp(x, s, width - s), clamp(y, s, height - s), c);	
-	D(x, y, x_i, y_i, c) = i16(sum(pow((I(x + u.x, y + u.y, c) - I(x_i + u.x, y_i + u.y, c)), 2)));
+	
 	// D.trace_stores();
 
 }
 
 void print_buffer(Buffer<short> b, int x, int y, int x_i, int y_i, int c) {
 	cout<<"b("<<x<<", "<<y<<", "<<x_i<<", "<<y_i<<", "<<c<<")="<< b(x, y, x_i, y_i, c)<<endl;
+}
+
+
+
+
+
+
+bool have_opencl_or_metal();
+
+
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+
+
+// A helper function to check if OpenCL seems to exist on this machine.
+
+bool have_opencl_or_metal() {
+#ifdef _WIN32
+    return LoadLibrary("OpenCL.dll") != NULL;
+#elif __APPLE__
+    return dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal", RTLD_LAZY) != NULL;
+#else
+    return dlopen("libOpenCL.so", RTLD_LAZY) != NULL;
+#endif
 }
